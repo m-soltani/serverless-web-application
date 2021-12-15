@@ -45,8 +45,8 @@ env:
   BICEP_FILE_NAME: 'main'
 
 permissions:
-  id-token: write
-  contents: read
+      id-token: write
+      contents: read
 
 jobs:
   validate_deploy:
@@ -80,6 +80,7 @@ jobs:
         azcliversion: 2.27.2
         # Specify the script here
         inlineScript: |
+          az account show -o table
           az group create -l ${{ env.AZURE_REGION }} -n ${{ env.RESOURCE_GROUP_NAME }}
           az deployment group validate -g ${{ env.APP_NAME_PREFIX }}-${{ env.ENVIRONMENT_TYPE }}-rg --template-file ./${{ env.BICEP_FILE_PATH }}/main.bicep
           az bicep upgrade
