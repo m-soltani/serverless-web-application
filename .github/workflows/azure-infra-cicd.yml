@@ -1,32 +1,32 @@
 name: Create Azure Resource (IaC)
-on: 
+on:
   workflow_dispatch:
     inputs:
-      AZURE_REGION: 
+      AZURE_REGION:
         description: 'Azure Region to deploy Azure resources'
-        required: true    
-        default: 'azure-region'  
-      ENVIRONMENT_TYPE: 
+        required: true
+        default: 'azure-region'
+      ENVIRONMENT_TYPE:
         description: 'Environment: dev, test, or prod'
         required: true
         default: 'dev'
-      APP_NAME_PREFIX: 
+      APP_NAME_PREFIX:
         description: 'Prefix to be used in naming Azure resources'
         required: true
         default: 'prefix'
-      RESOURCE_GROUP_NAME: 
+      RESOURCE_GROUP_NAME:
         description: 'Resource Group to deploy Azure resources'
         required: true
         default: 'resource-group'
-      MSI_NAME: 
+      MSI_NAME:
         description: 'User Managed Identity'
         required: true
         default: 'user-msi'
-      MSI_RESOURCE_GROUP: 
+      MSI_RESOURCE_GROUP:
         description: 'Resource Group where User Managed Identity is located'
         required: true
         default: 'msi-resource-group'
-  
+
 # CONFIGURATION
 # For help, go to https://github.com/Azure/Actions
 #
@@ -43,24 +43,36 @@ env:
   MSI_RESOURCE_GROUP: ${{ github.event.inputs.MSI_RESOURCE_GROUP }}
   BICEP_FILE_PATH: 'deploy'
   BICEP_FILE_NAME: 'main'
-  
+
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   validate_deploy:
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
     steps:
+    - name: OIDC Login to Azure Public Cloud with AzPowershell (enableAzPSSession true)
+      uses: azure/login@v1
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        enable-AzPSSession: true
+
     # Authentication
     # Set up the following secrets in your repository: AZURE_CREDENTIALS
     # For details on usage of secrets, please refer https://help.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS  }}
-    
+    # - name: Azure Login
+    #   uses: azure/login@v1
+    #   with:
+    #     creds: ${{ secrets.AZURE_CREDENTIALS  }}
+
     # Checkout
     - name: Checkout
       uses: actions/checkout@v1
 
-    # Build ARM Template from Bicep and create a target Azure resource group  
+    # Build ARM Template from Bicep and create a target Azure resource group
     - name: Azure CLI - Validate Bicep file ${{ env.BICEP_FILE_PATH }}/${{ env.BICEP_FILE_NAME }}.bicep
       uses: Azure/cli@1.0.4
       with:
@@ -70,7 +82,7 @@ jobs:
         inlineScript: |
           az group create -l ${{ env.AZURE_REGION }} -n ${{ env.RESOURCE_GROUP_NAME }}
           az deployment group validate -g ${{ env.APP_NAME_PREFIX }}-${{ env.ENVIRONMENT_TYPE }}-rg --template-file ./${{ env.BICEP_FILE_PATH }}/main.bicep
-          az bicep upgrade 
+          az bicep upgrade
           az bicep build --file ./${{ env.BICEP_FILE_PATH }}/${{ env.BICEP_FILE_NAME }}.bicep
 
     # Deployment Bicep template
